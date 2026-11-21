@@ -41,3 +41,18 @@ def test_missing_events_are_not_failures(tmp_path):
 def test_rejects_path_traversal(tmp_path, bad):
     with pytest.raises(ValueError):
         read_monitor(tmp_path, bad)
+
+
+def test_monitor_counts_retries_but_does_not_claim_final_verdict(tmp_path):
+    folder, events = make_run(tmp_path)
+    (events / "retry.jsonl").write_text("\n".join([
+        json.dumps({"event": "file_started", "ts": 1, "key": "NJM-101"}),
+        json.dumps({"event": "file_finished", "ts": 2, "key": "NJM-101", "exit": 1}),
+        json.dumps({"event": "file_started", "ts": 3, "key": "NJM-101"}),
+        json.dumps({"event": "file_finished", "ts": 4, "key": "NJM-101", "exit": 0}),
+    ]), encoding="utf-8")
+    result = read_monitor(tmp_path, folder.name)
+    row = next(x for x in result["cases"] if x["key"] == "NJM-101")
+    assert row["attempts"] == 2
+    assert row["status"] == "PASSED"
+    assert "provisional" in result["note"].lower()
