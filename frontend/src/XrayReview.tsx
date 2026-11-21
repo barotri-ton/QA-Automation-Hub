@@ -25,6 +25,7 @@ const idFor = (execution: string, test: string) => JSON.stringify([execution, te
 
 export default function XrayReview() {
   const [source, setSource] = useState(JSON.stringify(EXAMPLE, null, 2));
+  const [jiraPlanKey, setJiraPlanKey] = useState("NJM-182768");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -89,6 +90,23 @@ export default function XrayReview() {
       typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)
     );
     return data;
+  }
+
+  async function importJira() {
+    if (!/^NJM-\\d+$/.test(jiraPlanKey)) { setError("Invalid Jira Test Plan key"); return; }
+    setLoading(true); setError("");
+    try {
+      const response = await fetch(`/api/jira/plans/${jiraPlanKey}/snapshot`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Jira import failed");
+      const next: Plan = {jira_key: data.jira_key, executions: data.executions, mappings: data.mappings};
+      setSource(JSON.stringify(next, null, 2));
+      setPlan(next);
+      setSelected(new Set(next.executions.flatMap(ex => ex.cases.map(tc => idFor(ex.jira_key, tc.jira_key)))));
+      setExpanded(new Set(next.executions.map(ex => ex.jira_key)));
+      setPreview(null); setSavedSuiteId(null); setCreatedRunId(null);
+    } catch (e) { setError(e instanceof Error ? e.message : "Jira import failed"); }
+    finally { setLoading(false); }
   }
 
   async function load() {
@@ -216,6 +234,7 @@ export default function XrayReview() {
   return <section className="panel xray-review">
     <h2>Xray Test Plan Review · Sequential Suite Builder</h2>
     <p className="hint"><strong>Preview mode:</strong> Paste a Test Plan snapshot as JSON. The example is synthetic; Jira import, persistence and execution are not connected yet.</p>
+    <div className="xray-actions"><label htmlFor="jira-plan-key">Jira Test Plan key</label><input id="jira-plan-key" value={jiraPlanKey} onChange={e => setJiraPlanKey(e.target.value.trim().toUpperCase())}/><button disabled={loading} onClick={() => void importJira()}>Import from Jira (read-only)</button></div>
     <label htmlFor="xray-json">Test Plan snapshot JSON</label>
     <textarea id="xray-json" rows={8} value={source} onChange={event => setSource(event.target.value)} spellCheck={false} />
     <div className="xray-actions">
