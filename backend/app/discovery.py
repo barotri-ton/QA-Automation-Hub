@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 
-JIRA_KEY = re.compile(r"(?<![A-Z0-9])NJM-\\d+(?!\\d)", re.I)
+JIRA_KEY = re.compile(r"(?<![A-Z0-9])NJM-\d+(?!\d)", re.I)
 PLUGIN = '''import json, os, pytest
 
 def pytest_collection_finish(session):
