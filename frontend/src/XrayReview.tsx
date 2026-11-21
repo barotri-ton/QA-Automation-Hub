@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Case = { jira_key: string; summary?: string };
 type Execution = { jira_key: string; summary?: string; cases: Case[] };
@@ -31,8 +31,52 @@ export default function XrayReview() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [savedSuiteId, setSavedSuiteId] = useState<string | null>(null);
   const [createdRunId, setCreatedRunId] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<{id:number;name:string}[]>([]);
+  const [repositoryId, setRepositoryId] = useState<number | null>(null);
+  const [runProgress, setRunProgress] = useState<{runner_active:boolean;total:number;completed:number;groups:{execution_key:string;status:string;completed:number;total:number;passed:number;failed:number;missing_automation:number}[]} | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/repositories").then(response => response.ok ? response.json() : [])
+      .then((items: {id:number;name:string}[]) => setRepositories(items))
+      .catch(() => setRepositories([]));
+  }, []);
+
+  useEffect(() => {
+    if (!createdRunId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch(`/api/runs/${createdRunId}`);
+        if (response.ok && !cancelled) setRunProgress(await response.json());
+      } catch { /* polling is best effort */ }
+    };
+    void refresh();
+    const interval = setInterval(() => { void refresh(); }, 1500);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [createdRunId]);
+
+  async function startRunner() {
+    if (!createdRunId || repositoryId === null) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/runs/${createdRunId}/start`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({repository_id: repositoryId}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(
+        typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start runner");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function post(endpoint: string, payload: unknown) {
     const response = await fetch(`/api/xray/preview/${endpoint}`, {
@@ -212,7 +256,23 @@ export default function XrayReview() {
         {savedSuiteId && <button disabled={loading || !!createdRunId} onClick={() => void createRunRecord()}>Create run record (no execution)</button>}
       </div>
       {savedSuiteId && <p className="hint">Saved suite: <code>{savedSuiteId}</code></p>}
-      {createdRunId && <p className="hint">Run record: <code>{createdRunId}</code> · No runner started</p>}
+      {createdRunId && <div className="xray-run-controls">
+        <p className="hint">Run record: <code>{createdRunId}</code></p>
+        <label htmlFor="runner-repo">Trusted automation repository</label>
+        <select id="runner-repo" value={repositoryId ?? ""} onChange={event => setRepositoryId(event.target.value ? Number(event.target.value) : null)}>
+          <option value="">Select scanned repository</option>
+          {repositories.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}
+        </select>
+        <button disabled={loading || repositoryId === null || !!runProgress?.runner_active || !!runProgress?.completed} onClick={() => void startRunner()}>Start sequential runner</button>
+        <p className="hint">Runner must be explicitly enabled on the local backend. Only run trusted scripts.</p>
+      </div>}
+      {runProgress && <div className="xray-preview" aria-live="polite">
+        <h3>Live run progress · {runProgress.completed}/{runProgress.total}</h3>
+        {runProgress.groups.map(group => <div className="xray-preview-row" key={group.execution_key}>
+          <strong>{group.execution_key}</strong>
+          <span>{group.status} · {group.completed}/{group.total} · PASS {group.passed} · FAIL {group.failed} · Missing {group.missing_automation}</span>
+        </div>)}
+      </div>}
       {preview.run.groups.map((group, index) => <div key={group.execution_key} className="xray-preview-row">
         <strong>{index + 1}. {group.execution_key}</strong>
         <span>{group.status} · {group.total} runnable · {group.missing_automation} missing</span>
