@@ -61,12 +61,21 @@ def analyze(root: Path, run_id: str):
         attempts_by_key.setdefault(item["key"], []).append(item)
         latest[item["key"]] = item
     for key, item in latest.items():
+        # Filesystem mtime does not establish attempt order. Preserve all observed
+        # outcomes and flag conflicting retry statuses for human reconciliation.
+        observed = sorted({attempt["status"] for attempt in attempts_by_key[key]})
+        item["observed_statuses"] = observed
+        item["retry_conflict"] = len(observed) > 1
+        item["final_verdict_verified"] = False
+        item["needs_verdict_review"] = len(attempts_by_key[key]) > 1
         item["attempts"] = len(attempts_by_key[key])
         item["history"] = attempts_by_key[key][:-1]
         item["verdict_confidence"] = "PROVISIONAL_FILE_MTIME"
     counts = {k: sum(item["status"] == k for item in latest.values()) for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED")}
     return {"run_id": run_id, "counts": counts, "cases": sorted(latest.values(), key=lambda item: item["key"]),
             "attempts": len(results), "reports_scanned": reports_scanned,
+            "retry_review_required": sum(item["needs_verdict_review"] for item in latest.values()),
+            "conflicting_retry_outcomes": sum(item["retry_conflict"] for item in latest.values()),
             "authoritative_for": "JUnit reports ordered by filesystem modification time; provisional when retries or concurrent writes exist",
             "jira_published": False}
 
