@@ -11,10 +11,11 @@ BASE_DEFAULT = "http://10.170.180.181:8080"
 
 
 def _client():
-    token = os.getenv("QA_HUB_JIRA_PAT", "")
+    from .jira_connection import effective_credentials
+    base, token = effective_credentials()
     if not token:
         raise HTTPException(503, "Jira PAT not configured on backend")
-    base = os.getenv("QA_HUB_JIRA_BASE_URL", BASE_DEFAULT).rstrip("/")
+    base = base.rstrip("/")
     if not base.startswith(("http://", "https://")):
         raise HTTPException(503, "Invalid Jira base URL")
     return httpx.Client(base_url=base, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
