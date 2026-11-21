@@ -15,7 +15,8 @@ See [LOCAL_WINDOWS_TEST.md](LOCAL_WINDOWS_TEST.md). Configure the Jira PAT in th
 ## Known gaps / acceptance blockers
 - Backend stale spec-reference import fixed in `investigations.py`; regression test now imports the complete FastAPI app. **Unit tests and frontend build have not yet been executed**, and Windows VM / live Jira integration remains unverified.
 - Runner locking is process-local; restart recovery and cross-process arbitration are incomplete.
-- JUnit aggregation is best-effort; a filename-ordered last result is **not** proof of the chronologically final retry. Inspect Allure history before declaring final status.
+- JUnit aggregation is best-effort; file-mtime ordering is **not** proof of the chronologically final retry. Results now expose `retry_conflict`, `needs_verdict_review`, and `final_verdict_verified=false`; the dashboard flags unresolved retries. Inspect Allure history before declaring final status.
+- FLBv3 monitor NJM key regex has been corrected; offline regression coverage includes planned keys and retry events. This does **not** establish live Windows validation.
 - Jira custom fields are instance-specific; current test detail API still uses known field IDs.
 - Imported Test Run IDs persist in suite JSON snapshots but are not attached to the sequential runner's case instance model.
 - No automatic spec comparison or product-bug determination; reviews are human decisions.
