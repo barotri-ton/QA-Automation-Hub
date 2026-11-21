@@ -56,8 +56,8 @@ def save(payload: SpecCheckInput, db: Session = Depends(session)):
     except (ValueError, OSError) as exc:
         raise HTTPException(422, "Unable to validate runner evidence for spec check") from exc
     case = next((item for item in report["cases"] if item["key"] == payload.test_key), None)
-    if case is None or case["status"] != "FAILED":
-        raise HTTPException(422, "Manual spec check is available only for a FAILED case in the selected run")
+    if case is None or case["status"] != "FAILED" or case.get("needs_verdict_review", False):
+        raise HTTPException(422, "Spec check requires a FAILED case without unresolved retry verdict; reconcile retries first")
     if payload.status not in STATES:
         raise HTTPException(422, "Invalid manual spec verification status")
     row = db.scalar(select(SpecCheck).where(
