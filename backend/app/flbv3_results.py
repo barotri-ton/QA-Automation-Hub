@@ -1,4 +1,5 @@
 """Read-only JUnit report reconciliation for FLBv3 runs."""
+import json
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -9,6 +10,58 @@ router = APIRouter(prefix="/api/flbv3", tags=["FLBv3 results"])
 KEY = re.compile(r"(?<![A-Za-z0-9])NJM[-_][0-9]+(?![0-9])", re.I)
 MAX_FILES = 500
 MAX_BYTES = 12_000_000
+MAX_ALLURE_RESULTS = 2000
+MAX_ALLURE_JSON_BYTES = 2_000_000
+MAX_EVIDENCE_PER_CASE = 40
+
+
+def _allure_evidence(folder: Path):
+    """Index safe metadata only; never expose attachment bytes or absolute paths."""
+    evidence = {}
+    directory = folder / "allure-results"
+    if not directory.is_dir() or directory.is_symlink():
+        return evidence
+    for path in sorted(directory.glob("*-result.json"))[:MAX_ALLURE_RESULTS]:
+        try:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_ALLURE_JSON_BYTES:
+                continue
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            if not isinstance(payload, dict):
+                continue
+            identifiers = " ".join(str(payload.get(field) or "") for field in ("name", "fullName", "testCaseId"))
+            for label in payload.get("labels", []):
+                if isinstance(label, dict) and label.get("name") in ("testCaseId", "testId", "suite", "subSuite"):
+                    identifiers += " " + str(label.get("value") or "")
+            match = KEY.search(identifiers)
+            if not match:
+                continue
+            key = match.group().upper().replace("_", "-")
+            attachments = []
+            for attachment in payload.get("attachments", []):
+                if not isinstance(attachment, dict):
+                    continue
+                source = attachment.get("source")
+                if not isinstance(source, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,200}", source):
+                    continue
+                candidate = directory / source
+                if candidate.is_symlink() or not candidate.is_file():
+                    continue
+                attachments.append({"name": str(attachment.get("name") or "Evidence")[:120],
+                                    "type": str(attachment.get("type") or "")[:100],
+                                    "source": source, "available": True})
+                if len(attachments) >= MAX_EVIDENCE_PER_CASE:
+                    break
+            evidence.setdefault(key, []).append({
+                "result_file": path.name, "uuid": str(payload.get("uuid") or "")[:100],
+                "status": str(payload.get("status") or "unknown")[:30],
+                "start": payload.get("start") if isinstance(payload.get("start"), (int, float)) else None,
+                "stop": payload.get("stop") if isinstance(payload.get("stop"), (int, float)) else None,
+                "attachments": attachments,
+            })
+        except (OSError, ValueError, UnicodeError, TypeError):
+            continue
+    return evidence
+
 
 
 def analyze(root: Path, run_id: str):
@@ -55,6 +108,7 @@ def analyze(root: Path, run_id: str):
             results.append({"key": key_match.group().upper().replace("_", "-"), "test": name,
                             "status": kind, "reason": reason,
                             "duration": case.get("time"), "report": str(path.relative_to(folder))})
+    allure = _allure_evidence(folder)
     latest = {}
     attempts_by_key = {}
     for item in results:
@@ -64,6 +118,8 @@ def analyze(root: Path, run_id: str):
         # Filesystem mtime does not establish attempt order. Preserve all observed
         # outcomes and flag conflicting retry statuses for human reconciliation.
         observed = sorted({attempt["status"] for attempt in attempts_by_key[key]})
+        item["allure_results"] = allure.get(key, [])
+        item["evidence_count"] = sum(len(record["attachments"]) for record in item["allure_results"])
         item["observed_statuses"] = observed
         item["display_status_is_provisional"] = True
         item["retry_conflict"] = len(observed) > 1
@@ -80,6 +136,7 @@ def analyze(root: Path, run_id: str):
             "attempts": len(results), "reports_scanned": reports_scanned,
             "counts_are_provisional": True, "verified_counts": verified_counts,
             "provisional_count": provisional_count,
+            "allure_cases_with_evidence": sum(bool(item["evidence_count"]) for item in latest.values()),
             "retry_review_required": sum(item["needs_verdict_review"] for item in latest.values()),
             "conflicting_retry_outcomes": sum(item["retry_conflict"] for item in latest.values()),
             "authoritative_for": "JUnit reports ordered by filesystem modification time; provisional when retries or concurrent writes exist",
