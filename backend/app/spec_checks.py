@@ -51,7 +51,10 @@ def save(payload: SpecCheckInput, db: Session = Depends(session)):
     # Server-side evidence check: client confirmation alone is not sufficient.
     from .flbv3_runner_api import _repo
     from .flbv3_results import analyze
-    report = analyze(_repo(payload.repository_id), payload.run_id)
+    try:
+        report = analyze(_repo(payload.repository_id), payload.run_id)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, "Unable to validate runner evidence for spec check") from exc
     case = next((item for item in report["cases"] if item["key"] == payload.test_key), None)
     if case is None or case["status"] != "FAILED":
         raise HTTPException(422, "Manual spec check is available only for a FAILED case in the selected run")
