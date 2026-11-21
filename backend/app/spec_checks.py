@@ -27,6 +27,7 @@ class SpecCheckInput(BaseModel):
     run_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
     test_key: str = Field(pattern=r"^NJM-[0-9]+$")
     status: str
+    failed_reason_unclear: bool = False
     note: str = Field(default="", max_length=5000)
     reviewer: str = Field(min_length=1, max_length=120)
 
@@ -44,6 +45,8 @@ def serialize(row):
 
 @router.put("")
 def save(payload: SpecCheckInput, db: Session = Depends(session)):
+    if not payload.failed_reason_unclear:
+        raise HTTPException(422, "Spec marker requires a FAILED test with an unresolved failure reason; confirm eligibility in review")
     if payload.status not in STATES:
         raise HTTPException(422, "Invalid manual spec verification status")
     row = db.scalar(select(SpecCheck).where(
