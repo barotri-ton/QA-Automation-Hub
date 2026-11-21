@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 from .database import Base, SessionLocal, engine
 from .discovery import collect_tests
 from .models import Repository, TestItem, now
+from .xray_preview import router as xray_preview_router
 
 Base.metadata.create_all(engine)
 app = FastAPI(title="QA Automation Hub", version="0.1.0")
+app.include_router(xray_preview_router)
 
 class RepoInput(BaseModel):
     name: str = Field(min_length=1, max_length=120)
