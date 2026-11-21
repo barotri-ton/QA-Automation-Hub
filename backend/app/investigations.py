@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from . import jira_api
 from .flbv3_results import analyze
 from .flbv3_runner_api import _repo
-from .spec_references import SpecReference, serialize
+from .spec_checks import SpecCheck, serialize
 from .database import SessionLocal
 from sqlalchemy import select
 
@@ -43,7 +43,7 @@ def investigate(
             except HTTPException as exc:
                 jira_error = {"status": exc.status_code, "message": exc.detail}
     with SessionLocal() as db:
-        spec = db.scalar(select(SpecReference).where(SpecReference.test_key == test_key))
+        spec = db.scalar(select(SpecCheck).where(SpecCheck.test_key == test_key, SpecCheck.run_id == run_id))
         spec_data = serialize(spec) if spec is not None else None
     return {
         "test_key": test_key,
@@ -53,9 +53,9 @@ def investigate(
         "jira_test": jira,
         "xray_test_run": xray_run,
         "jira_error": jira_error,
-        "specification": ({"state": "MANUALLY_CURATED", **spec_data} if spec_data else {
+        "specification": ({"state": "MANUAL_MARKER", **spec_data} if spec_data else {
             "state": "NOT_CONNECTED",
-            "message": "No verified specification source. Attach or consult the current spec before classification.",
+            "message": "No manual spec check recorded. Only unresolved FAILED cases need spec verification.",
         }),
         "classification": "INCONCLUSIVE",
         "classification_is_automatic": False,
@@ -63,7 +63,7 @@ def investigate(
         "provenance": {
             "runner": "local JUnit XML",
             "jira": "read-only Jira/Xray when configured",
-            "specification": "locally curated and unverified" if spec_data else "unavailable",
+            "specification": "manual QA marker, not automatic verification" if spec_data else "unavailable",
             "verdict": "provisional; report file mtime ordering",
         },
     }
