@@ -29,7 +29,7 @@ export default function Flbv3Runner({repositories}:{repositories:Repo[]}) {
  <p className="hint">Runs scripts in the registered local repository. Gated actions can alter the lab. Enable only on a trusted loopback backend.</p>
  <label>Repository <select value={repositoryId} onChange={e=>setRepositoryId(e.target.value)}><option value="">Select</option>{repositories.map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select></label>
  <label><input type="checkbox" checked={retry} onChange={e=>setRetry(e.target.checked)}/> Retry failed/broken in existing run</label>
- <label>Run folder {retry?"(required)":"(optional: existing run)"}<input value={runId} onChange={e=>setRunId(e.target.value)} placeholder="20261121-120000-000"/></label>
+ <label>Run folder {retry?"(required)":"(created automatically for full run)"}<input disabled={!retry} value={runId} onChange={e=>setRunId(e.target.value)} placeholder="20261121-120000-000"/></label>
  {retry?<><label>Only TC keys (optional)<input value={only} onChange={e=>setOnly(e.target.value)} placeholder="NJM-101,NJM-102"/></label><label>Exclude TC keys<input value={exclude} onChange={e=>setExclude(e.target.value)}/></label></>:
  <label>Waves (1–9)<input value={waves} onChange={e=>setWaves(e.target.value)}/></label>}
  <label>Parallel workers <input type="number" min={1} max={6} value={parallel} onChange={e=>setParallel(Number(e.target.value))}/></label>
