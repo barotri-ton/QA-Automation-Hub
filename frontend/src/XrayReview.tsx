@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-type Case = { jira_key: string; summary?: string };
+type Case = { jira_key: string; summary?: string; test_run_id?: number | null; xray_status?: string | null; rank?: number | null; archived?: boolean };
 type Execution = { jira_key: string; summary?: string; cases: Case[] };
 type Plan = { jira_key: string; executions: Execution[]; mappings: Record<string, string> };
 type Group = { execution_key: string; case_instances: { jira_key: string; nodeid: string | null; status: string }[] };
@@ -233,7 +233,7 @@ export default function XrayReview() {
 
   return <section className="panel xray-review">
     <h2>Xray Test Plan Review · Sequential Suite Builder</h2>
-    <p className="hint"><strong>Preview mode:</strong> Paste a Test Plan snapshot as JSON. The example is synthetic; Jira import, persistence and execution are not connected yet.</p>
+    <p className="hint"><strong>Preview mode:</strong> Import a live Jira Test Plan or review a JSON snapshot. Suite persistence and sequential execution are available locally.</p>
     <div className="xray-actions"><label htmlFor="jira-plan-key">Jira Test Plan key</label><input id="jira-plan-key" value={jiraPlanKey} onChange={e => setJiraPlanKey(e.target.value.trim().toUpperCase())}/><button disabled={loading} onClick={() => void importJira()}>Import from Jira (read-only)</button></div>
     <label htmlFor="xray-json">Test Plan snapshot JSON</label>
     <textarea id="xray-json" rows={8} value={source} onChange={event => setSource(event.target.value)} spellCheck={false} />
@@ -260,7 +260,7 @@ export default function XrayReview() {
           {expanded.has(execution.jira_key) && <div className="xray-cases">{execution.cases.map(test =>
             <label key={test.jira_key} className="xray-case">
               <input type="checkbox" checked={selected.has(idFor(execution.jira_key, test.jira_key))} onChange={() => toggleCase(idFor(execution.jira_key, test.jira_key))} />
-              <span>{test.jira_key} · {test.summary || "Test Case"}</span>
+              <span>{test.jira_key} · {test.summary || "Test Case"} · Run #{test.test_run_id ?? "N/A"} · {test.xray_status ?? "UNKNOWN"}</span>
               <small className={plan.mappings[test.jira_key] ? "xray-mapped" : "xray-missing"}>{plan.mappings[test.jira_key] ? "Mapped" : "Missing automation"}</small>
             </label>
           )}</div>}
