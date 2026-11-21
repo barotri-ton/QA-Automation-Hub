@@ -17,6 +17,10 @@ router = APIRouter(prefix="/api/xray/preview", tags=["Xray preview"])
 class CasePayload(BaseModel):
     jira_key: str = Field(pattern=r"^NJM-[0-9]+$")
     summary: str = ""
+    test_run_id: int | None = Field(default=None, ge=1)
+    xray_status: str | None = None
+    rank: int | None = None
+    archived: bool = False
 
 
 class ExecutionPayload(BaseModel):
