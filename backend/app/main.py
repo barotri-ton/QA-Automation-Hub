@@ -16,6 +16,7 @@ from .flbv3_results import router as flbv3_results_router
 from .failure_reviews import router as failure_reviews_router
 from .flbv3_inventory import router as flbv3_inventory_router
 from .investigations import router as investigations_router
+from .spec_references import router as spec_references_router
 
 Base.metadata.create_all(engine)
 app = FastAPI(title="QA Automation Hub", version="0.1.0")
@@ -28,6 +29,7 @@ app.include_router(flbv3_results_router)
 app.include_router(failure_reviews_router)
 app.include_router(flbv3_inventory_router)
 app.include_router(investigations_router)
+app.include_router(spec_references_router)
 
 class RepoInput(BaseModel):
     name: str = Field(min_length=1, max_length=120)
