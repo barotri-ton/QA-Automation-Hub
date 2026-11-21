@@ -66,3 +66,21 @@ def test_allure_evidence_metadata_is_scoped_to_matching_case(tmp_path):
     assert case["allure_results"][0]["attachments"][0]["name"] == "Failure screenshot"
     assert result["allure_cases_with_evidence"] == 1
     assert case["final_verdict_verified"] is False
+
+
+def test_allure_timeline_is_timestamp_ordered_but_not_final_verdict(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "run-2"
+    allure = run / "allure-results"
+    allure.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text("{}")
+    (run / "junit-wave.xml").write_text('<testsuite><testcase name="NJM-123"/></testsuite>')
+    for name, start, status in [("a", 200, "passed"), ("b", 100, "failed")]:
+        (allure / f"{name}-result.json").write_text(json.dumps({
+            "name": "NJM-123", "start": start, "stop": start + 5, "status": status
+        }))
+    case = analyze(root, run.name)["cases"][0]
+    assert [x["status"] for x in case["allure_timeline"]] == ["failed", "passed"]
+    assert case["allure_timed_attempts"] == 2
+    assert case["allure_timeline_confidence"] == "TIMESTAMPS_PRESENT_NOT_VERIFIED"
+    assert case["final_verdict_verified"] is False
