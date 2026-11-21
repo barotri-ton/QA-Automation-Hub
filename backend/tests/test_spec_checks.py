@@ -11,7 +11,7 @@ def test_spec_marker_round_trip():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
-        payload = SpecCheckInput(run_id="demo-run", test_key="NJM-123", status="VERIFIED",
+        payload = SpecCheckInput(run_id="demo-run", test_key="NJM-123", status="VERIFIED", failed_reason_unclear=True,
                                  reviewer="QA", note="Checked current spec manually")
         result = save(payload, db=db)
         assert result["status"] == "VERIFIED"
@@ -28,7 +28,7 @@ def test_invalid_status_rejected():
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         try:
-            save(SpecCheckInput(run_id="run", test_key="NJM-123", status="AUTO_VERIFIED", reviewer="QA"), db=db)
+            save(SpecCheckInput(run_id="run", test_key="NJM-123", status="AUTO_VERIFIED", failed_reason_unclear=True, reviewer="QA"), db=db)
         except HTTPException as exc:
             assert exc.status_code == 422
         else:
