@@ -16,6 +16,7 @@ from .flbv3_results import router as flbv3_results_router
 from .failure_reviews import router as failure_reviews_router
 from .flbv3_inventory import router as flbv3_inventory_router
 from .investigations import router as investigations_router
+from .spec_checks import router as spec_checks_router
 from .spec_references import router as spec_references_router
 
 Base.metadata.create_all(engine)
@@ -29,6 +30,7 @@ app.include_router(flbv3_results_router)
 app.include_router(failure_reviews_router)
 app.include_router(flbv3_inventory_router)
 app.include_router(investigations_router)
+app.include_router(spec_checks_router)
 app.include_router(spec_references_router)
 
 class RepoInput(BaseModel):
