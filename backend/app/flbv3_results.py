@@ -14,14 +14,22 @@ MAX_BYTES = 12_000_000
 def analyze(root: Path, run_id: str):
     folder = _safe_run(root, run_id)
     results = []
-    paths = sorted(folder.rglob("*.xml"), key=lambda p: (p.stat().st_mtime_ns, str(p)) if p.is_file() else (0, str(p)))
-    for path in paths:
-        if len(results) >= MAX_FILES:
-            break
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
+    candidates = []
+    for path in folder.rglob("*.xml"):
+        try:
+            if path.is_symlink() or not path.is_file():
+                continue
+            if not (path.name.lower().startswith(("junit", "pytest", "results", "report")) or "junit" in str(path).lower()):
+                continue
+            stat = path.stat()
+            if stat.st_size <= MAX_BYTES:
+                candidates.append((stat.st_mtime_ns, str(path), path))
+        except OSError:
             continue
-        if not (path.name.lower().startswith(("junit", "pytest", "results", "report")) or "junit" in str(path).lower()):
-            continue
+    candidates.sort()
+    reports_scanned = 0
+    for _, _, path in candidates[:MAX_FILES]:
+        reports_scanned += 1
         try:
             # Reject DTD/entity expansion and avoid parsing unbounded external XML.
             with path.open("rb") as stream:
@@ -58,7 +66,7 @@ def analyze(root: Path, run_id: str):
         item["verdict_confidence"] = "PROVISIONAL_FILE_MTIME"
     counts = {k: sum(item["status"] == k for item in latest.values()) for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED")}
     return {"run_id": run_id, "counts": counts, "cases": sorted(latest.values(), key=lambda item: item["key"]),
-            "attempts": len(results), "reports_scanned": len(set(item["report"] for item in results)),
+            "attempts": len(results), "reports_scanned": reports_scanned,
             "authoritative_for": "JUnit reports ordered by filesystem modification time; provisional when retries or concurrent writes exist",
             "jira_published": False}
 
