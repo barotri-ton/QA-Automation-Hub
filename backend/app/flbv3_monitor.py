@@ -10,7 +10,7 @@ from .models import Repository
 
 router = APIRouter(prefix="/api/flbv3", tags=["FLBv3 monitoring"])
 RUN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$")
-KEY = re.compile(r"^NJM-\\d+$")
+KEY = re.compile(r"^NJM-[0-9]+$")
 
 
 def get_db():
