@@ -79,6 +79,8 @@ def status():
 def start(payload: Launch):
     global _process, _identity
     _enabled()
+    if not payload.retry and payload.run_id:
+        raise HTTPException(422, "Full runs must create a fresh runner-generated directory")
     if payload.retry and not payload.run_id:
         raise HTTPException(422, "Retry requires explicit run_id")
     if not payload.retry and (payload.only or payload.exclude):
@@ -104,12 +106,10 @@ def start(payload: Launch):
         args += ["-RunDir", str(_safe_run(root, payload.run_id)),
                  "-Parallel", str(payload.parallel)]
         if payload.only:
-            args += ["-Only", ",".join(k.removeprefix("NJM-") for k in payload.only)]
+            args += ["-Only", ",".join(payload.only)]
         if payload.exclude:
-            args += ["-Exclude", ",".join(k.removeprefix("NJM-") for k in payload.exclude)]
+            args += ["-Exclude", ",".join(payload.exclude)]
     else:
-        if payload.run_id:
-            args += ["-RunDir", str(_safe_run(root, payload.run_id))]
         args += ["-Waves", ",".join(str(w) for w in payload.waves),
                  "-Parallel", str(payload.parallel)]
     if payload.allow:
