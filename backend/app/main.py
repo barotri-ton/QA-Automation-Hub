@@ -9,11 +9,13 @@ from .discovery import collect_tests
 from .models import Repository, TestItem, now
 from .xray_preview import router as xray_preview_router
 from .suite_api import router as suite_router
+from .flbv3_monitor import router as flbv3_monitor_router
 
 Base.metadata.create_all(engine)
 app = FastAPI(title="QA Automation Hub", version="0.1.0")
 app.include_router(xray_preview_router)
 app.include_router(suite_router)
+app.include_router(flbv3_monitor_router)
 
 class RepoInput(BaseModel):
     name: str = Field(min_length=1, max_length=120)
