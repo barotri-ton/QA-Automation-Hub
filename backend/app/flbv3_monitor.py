@@ -32,7 +32,7 @@ def read_monitor(repo_root: Path, run_id: str, limit: int = 200):
     planned = [x for x in meta.get("planned_keys", []) if isinstance(x, str) and KEY.fullmatch(x)]
     events = []
     event_dir = folder / "allure-results" / "runner-events"
-    if event_dir.is_dir():
+    if event_dir.is_dir() and not event_dir.is_symlink():
         for file in sorted(event_dir.glob("*.jsonl")):
             if file.is_symlink() or not file.is_file():
                 continue
@@ -50,7 +50,12 @@ def read_monitor(repo_root: Path, run_id: str, limit: int = 200):
                     if not isinstance(event, dict) or not isinstance(event.get("event"), str):
                         continue
                     events.append(event)
-    events.sort(key=lambda e: (float(e.get("ts") or 0), str(e.get("run") or "")))
+    def timestamp(event):
+        try:
+            return float(event.get("ts") or 0)
+        except (TypeError, ValueError, OverflowError):
+            return 0.0
+    events.sort(key=lambda e: (timestamp(e), str(e.get("run") or "")))
     states = {key: {"key": key, "status": "PLANNED", "attempts": 0} for key in planned}
     active = {}
     for event in events:
