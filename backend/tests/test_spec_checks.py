@@ -33,7 +33,7 @@ def test_invalid_status_rejected(monkeypatch):
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         try:
-            save(SpecCheckInput(run_id="run", test_key="NJM-123", status="AUTO_VERIFIED", failed_reason_unclear=True, reviewer="QA"), db=db)
+            save(SpecCheckInput(repository_id=1, run_id="run", test_key="NJM-123", status="AUTO_VERIFIED", failed_reason_unclear=True, reviewer="QA"), db=db)
         except HTTPException as exc:
             assert exc.status_code == 422
         else:
