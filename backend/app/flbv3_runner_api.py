@@ -111,7 +111,7 @@ def start(payload: Launch):
         if payload.run_id:
             args += ["-RunDir", str(_safe_run(root, payload.run_id))]
         args += ["-Waves", ",".join(str(w) for w in payload.waves),
-                 "-Parallel", str(payload.parallel), "-NoPreflight:$false"]
+                 "-Parallel", str(payload.parallel)]
     if payload.allow:
         args += ["-Allow", ",".join(payload.allow)]
     with _guard:
