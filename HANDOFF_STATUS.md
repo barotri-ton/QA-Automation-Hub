@@ -4,7 +4,7 @@
 Backend FastAPI/SQLite, React/Vite frontend, Jira Server/DC Xray Raven read-only import, sequential Xray suites, FLBv3 PowerShell wave/retry runner, event monitor, JUnit result review and local failure classification.
 
 ## Start (Windows, trusted loopback only)
-See [LOCAL_WINDOWS_TEST.md](LOCAL_WINDOWS_TEST.md). Configure `QA_HUB_JIRA_PAT` in backend environment; never commit it. Register the **local folder** containing existing `flb-automation` scripts. The Hub never edits those scripts.
+See [LOCAL_WINDOWS_TEST.md](LOCAL_WINDOWS_TEST.md). Configure the Jira PAT in the local **Settings · Jira Connection** UI (process memory only), or use `QA_HUB_JIRA_PAT` in the backend environment; never commit it. Register the **local folder** containing existing `flb-automation` scripts. The Hub never edits those scripts.
 
 ## Before using destructive automation
 - Run on an isolated VM/lab. Existing PowerShell preflight can pull Git, seed fixtures and clean up AUTO_FLB jobs.
@@ -13,7 +13,7 @@ See [LOCAL_WINDOWS_TEST.md](LOCAL_WINDOWS_TEST.md). Configure `QA_HUB_JIRA_PAT` 
 - Jira result publishing is intentionally disabled; status updates and evidence uploads require a separate, audited approval workflow.
 
 ## Known gaps / acceptance blockers
-- No Windows VM or live Jira integration test performed here; deployment behavior is unverified.
+- Backend stale spec-reference import fixed in `investigations.py`; regression test now imports the complete FastAPI app. **Unit tests and frontend build have not yet been executed**, and Windows VM / live Jira integration remains unverified.
 - Runner locking is process-local; restart recovery and cross-process arbitration are incomplete.
 - JUnit aggregation is best-effort; a filename-ordered last result is **not** proof of the chronologically final retry. Inspect Allure history before declaring final status.
 - Jira custom fields are instance-specific; current test detail API still uses known field IDs.
@@ -35,6 +35,6 @@ Then perform manual Jira import and wave smoke tests in a safe lab. Track failur
 ## Evidence cross-check (new)
 - Local backend endpoint: `GET /api/investigations/repositories/{repository_id}/runs/{run_id}/tests/{test_key}?test_run_id={xray_run_id}`.
 - `test_run_id` is optional but should be provided from the selected Xray execution for execution-scoped evidence. The endpoint reads local JUnit and Jira/Xray only; it never writes to Jira.
-- If Jira is unavailable, `jira_error` is populated and local runner evidence remains visible. `specification.state=NOT_CONNECTED` is an explicit blocker for authoritative bug/obsolete classification.
+- If Jira is unavailable, `jira_error` is populated and local runner evidence remains visible. `specification.state=NOT_CONNECTED` means no manual spec marker exists; QA verifies the specification manually only when a FAILED test has an unclear cause.
 - In the local frontend, select a repository and run under FLBv3 Results, click Review Jira, enter the execution-specific Test Run ID and click Compare Jira + JUnit.
 - This is an integration implementation, **not** verified against the real intranet Jira or Windows runner. The Vercel demo continues to use synthetic data.
