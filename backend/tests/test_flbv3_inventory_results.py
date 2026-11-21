@@ -35,3 +35,7 @@ def test_results_preserve_retry_attempts(tmp_path):
     assert result["cases"][0]["attempts"] == 2
     assert len(result["cases"][0]["history"]) == 1
     assert result["cases"][0]["verdict_confidence"] == "PROVISIONAL_FILE_MTIME"
+    assert result["cases"][0]["retry_conflict"] is True
+    assert result["cases"][0]["needs_verdict_review"] is True
+    assert result["cases"][0]["final_verdict_verified"] is False
+    assert result["conflicting_retry_outcomes"] == 1
