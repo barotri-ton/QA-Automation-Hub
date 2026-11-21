@@ -42,3 +42,27 @@ def test_results_preserve_retry_attempts(tmp_path):
     assert result["counts_are_provisional"] is True
     assert result["provisional_count"] == 1
     assert result["verified_counts"]["PASSED"] == 0
+
+
+def test_allure_evidence_metadata_is_scoped_to_matching_case(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "run-1"
+    allure = run / "allure-results"
+    allure.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text("{}")
+    (run / "junit-wave.xml").write_text('<testsuite><testcase name="test_njm_123"><failure message="Assertion failed"/></testcase></testsuite>')
+    (allure / "image.png").write_bytes(b"test-image")
+    (allure / "abc-result.json").write_text(json.dumps({
+        "uuid": "abc", "name": "test_njm_123", "status": "failed", "start": 10, "stop": 20,
+        "attachments": [
+            {"name": "Failure screenshot", "source": "image.png", "type": "image/png"},
+            {"name": "Unsafe", "source": "../private.txt", "type": "text/plain"},
+            {"name": "Missing", "source": "missing.png", "type": "image/png"}
+        ]
+    }))
+    result = analyze(root, run.name)
+    case = result["cases"][0]
+    assert case["evidence_count"] == 1
+    assert case["allure_results"][0]["attachments"][0]["name"] == "Failure screenshot"
+    assert result["allure_cases_with_evidence"] == 1
+    assert case["final_verdict_verified"] is False
