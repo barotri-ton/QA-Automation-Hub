@@ -29,6 +29,8 @@ export default function XrayReview() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [savedSuiteId, setSavedSuiteId] = useState<string | null>(null);
+  const [createdRunId, setCreatedRunId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +51,8 @@ export default function XrayReview() {
     setLoading(true);
     setError("");
     setPreview(null);
+    setSavedSuiteId(null);
+    setCreatedRunId(null);
     try {
       const parsed: Plan = JSON.parse(source);
       const result = await post("review", parsed);
@@ -69,6 +73,8 @@ export default function XrayReview() {
 
   function toggleCase(key: string) {
     setPreview(null);
+    setSavedSuiteId(null);
+    setCreatedRunId(null);
     setSelected(current => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key); else next.add(key);
@@ -78,6 +84,8 @@ export default function XrayReview() {
 
   function toggleGroup(execution: Execution, checked: boolean) {
     setPreview(null);
+    setSavedSuiteId(null);
+    setCreatedRunId(null);
     setSelected(current => {
       const next = new Set(current);
       for (const test of execution.cases) {
@@ -101,9 +109,54 @@ export default function XrayReview() {
         if (cases.length) groups[execution.jira_key] = cases;
       }
       const result = await post("suite", { ...plan, selected: groups });
+      setSavedSuiteId(null);
+      setCreatedRunId(null);
       setPreview(result as Preview);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Suite preview failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveSuite() {
+    if (!plan || !preview) return;
+    setLoading(true);
+    setError("");
+    try {
+      const groups: Record<string, string[]> = {};
+      for (const execution of plan.executions) {
+        const cases = execution.cases.filter(test =>
+          selected.has(idFor(execution.jira_key, test.jira_key))
+        ).map(test => test.jira_key);
+        if (cases.length) groups[execution.jira_key] = cases;
+      }
+      const response = await fetch("/api/suites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...plan, selected: groups }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(JSON.stringify(data.detail));
+      setSavedSuiteId(data.suite_id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createRunRecord() {
+    if (!savedSuiteId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/suites/${savedSuiteId}/runs`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(JSON.stringify(data.detail));
+      setCreatedRunId(data.run_id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Run record creation failed");
     } finally {
       setLoading(false);
     }
@@ -154,6 +207,12 @@ export default function XrayReview() {
     {preview && <div className="xray-preview" aria-live="polite">
       <h3>Suite preview · {preview.mode}</h3>
       <p className="hint">{preview.run.total} runnable instances · {preview.run.missing_automation} missing automation · No tests started</p>
+      <div className="xray-actions">
+        <button disabled={loading || !!savedSuiteId} onClick={() => void saveSuite()}>Save suite snapshot</button>
+        {savedSuiteId && <button disabled={loading || !!createdRunId} onClick={() => void createRunRecord()}>Create run record (no execution)</button>}
+      </div>
+      {savedSuiteId && <p className="hint">Saved suite: <code>{savedSuiteId}</code></p>}
+      {createdRunId && <p className="hint">Run record: <code>{createdRunId}</code> · No runner started</p>}
       {preview.run.groups.map((group, index) => <div key={group.execution_key} className="xray-preview-row">
         <strong>{index + 1}. {group.execution_key}</strong>
         <span>{group.status} · {group.total} runnable · {group.missing_automation} missing</span>
