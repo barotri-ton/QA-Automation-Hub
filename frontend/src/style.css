@@ -21,3 +21,8 @@
 .xray-preview-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #2d3c51}
 .xray-preview-row span{color:#a5b4c8}
 @media(max-width:650px){.xray-case,.xray-preview-row{align-items:flex-start;flex-wrap:wrap}.xray-case small{margin-left:26px}.xray-group-header{flex-wrap:wrap}}
+
+.xray-run-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0}
+.xray-run-controls p{width:100%;margin:0}
+.xray-run-controls select{padding:11px;background:#0b1525;border:1px solid #3b4b61;border-radius:7px;color:#fff;max-width:100%}
+.xray-run-controls button:disabled{opacity:.45;cursor:not-allowed}
