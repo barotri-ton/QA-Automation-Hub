@@ -84,3 +84,21 @@ def test_allure_timeline_is_timestamp_ordered_but_not_final_verdict(tmp_path):
     assert case["allure_timed_attempts"] == 2
     assert case["allure_timeline_confidence"] == "TIMESTAMPS_PRESENT_NOT_VERIFIED"
     assert case["final_verdict_verified"] is False
+
+
+def test_reconciliation_detects_missing_and_mismatched_allure(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "run-3"
+    allure = run / "allure-results"
+    allure.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text("{}")
+    (run / "junit-wave.xml").write_text('<testsuite><testcase name="NJM-123"><failure message="failed"/></testcase></testsuite>')
+    def state():
+        return analyze(root, run.name)["cases"][0]["reconciliation"]["state"]
+    assert state() == "ALLURE_MISSING"
+    (allure / "a-result.json").write_text(json.dumps({"name": "NJM-123", "status": "passed"}))
+    assert state() == "STATUS_DISTRIBUTION_MISMATCH"
+    (allure / "a-result.json").write_text(json.dumps({"name": "NJM-123", "status": "failed"}))
+    assert state() == "STATUS_COUNTS_MATCH_ORDER_UNVERIFIED"
+    (allure / "b-result.json").write_text(json.dumps({"name": "NJM-123", "status": "failed"}))
+    assert state() == "ATTEMPT_COUNT_MISMATCH"
