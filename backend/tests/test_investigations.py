@@ -37,3 +37,13 @@ def test_jira_unavailable_keeps_local_evidence(monkeypatch):
     result = investigations.investigate(1, "run-1", "NJM-123", test_run_id=None, include_jira=True)
     assert result["runner_evidence"]["status"] == "BROKEN"
     assert result["jira_error"]["status"] == 503
+
+
+def test_main_app_imports_all_registered_routers():
+    """Catch stale imports after modules are renamed or deleted."""
+    from app.main import app
+    paths = {route.path for route in app.routes}
+    assert "/api/health" in paths
+    assert "/api/jira/connection" in paths
+    assert "/api/spec-checks" in paths
+    assert "/api/investigations/repositories/{repository_id}/runs/{run_id}/tests/{test_key}" in paths
