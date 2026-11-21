@@ -11,6 +11,7 @@ from .xray_preview import router as xray_preview_router
 from .suite_api import router as suite_router
 from .flbv3_monitor import router as flbv3_monitor_router
 from .jira_api import router as jira_router
+from .jira_connection import router as jira_connection_router
 from .flbv3_runner_api import router as flbv3_runner_router
 from .flbv3_results import router as flbv3_results_router
 from .failure_reviews import router as failure_reviews_router
@@ -24,6 +25,7 @@ app.include_router(xray_preview_router)
 app.include_router(suite_router)
 app.include_router(flbv3_monitor_router)
 app.include_router(jira_router)
+app.include_router(jira_connection_router)
 app.include_router(flbv3_runner_router)
 app.include_router(flbv3_results_router)
 app.include_router(failure_reviews_router)
