@@ -12,6 +12,8 @@ from .execution_groups import CaseStatus
 from .run_storage import SavedSuite, SavedRun, save_suite, save_run, load_run, update_run
 from .xray_preview import SuitePayload, make_snapshot
 from .xray_suite import SuiteSelection, build_sequential_run
+from .runner_worker import launch_run, active_run_id
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["Saved suites and runs"])
 Base.metadata.create_all(engine)
@@ -77,7 +79,7 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
     run = load_run(db, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
-    return {"runner_started": False, **run.summary()}
+    return {"runner_active": active_run_id() == run_id, **run.summary()}
 
 
 @router.get("/runs")
@@ -86,3 +88,27 @@ def list_runs(db: Session = Depends(get_db)):
         {"run_id": record.id, "suite_id": record.suite_id, "updated_at": record.updated_at}
         for record in db.scalars(select(SavedRun).order_by(SavedRun.created_at.desc()))
     ]
+
+
+class StartRunPayload(BaseModel):
+    repository_id: int
+
+
+@router.post("/runs/{run_id}/start", status_code=202)
+def start_run(run_id: str, payload: StartRunPayload):
+    try:
+        launch_run(run_id, payload.repository_id)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"run_id": run_id, "accepted": True, "mode": "SEQUENTIAL"}
+
+
+@router.get("/runner/status")
+def runner_status():
+    return {"active_run_id": active_run_id()}
