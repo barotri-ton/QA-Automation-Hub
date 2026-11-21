@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 
-JIRA_KEY = re.compile(r"(?<![A-Z0-9])NJM-\d+(?!\d)", re.I)
+JIRA_KEY = re.compile(r"(?<![A-Z0-9])NJM-\d+(?![A-Z0-9])", re.I)
 PLUGIN = '''import json, os, pytest
 
 def pytest_collection_finish(session):
@@ -23,7 +23,14 @@ def pytest_collection_finish(session):
         json.dump(result, f)
 '''
 
-def collect_tests(path: Path, timeout: int = 90) -> list[dict]:
+class CollectionError(RuntimeError):
+    pass
+
+
+def collect_tests(path: Path, timeout: int = 90, python_executable: str | None = None) -> list[dict]:
+    interpreter = python_executable or sys.executable
+    if not Path(interpreter).is_file():
+        raise CollectionError("Configured Python interpreter does not exist")
     with tempfile.TemporaryDirectory(prefix="qa-hub-") as temp:
         plugin = Path(temp) / "hub_collection_plugin.py"
         output = Path(temp) / "collected.json"
@@ -31,9 +38,14 @@ def collect_tests(path: Path, timeout: int = 90) -> list[dict]:
         env = dict(os.environ)
         env["QA_HUB_COLLECTION_OUTPUT"] = str(output)
         env["PYTHONPATH"] = os.pathsep.join([temp, str(path), env.get("PYTHONPATH", "")])
-        proc = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "hub_collection_plugin"], cwd=path, env=env, capture_output=True, text=True, timeout=timeout)
+        try:
+            proc = subprocess.run([interpreter, "-m", "pytest", "--collect-only", "-q", "-p", "hub_collection_plugin"], cwd=path, env=env, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise CollectionError(f"Pytest collection timed out after {timeout} seconds") from exc
+        except OSError as exc:
+            raise CollectionError("Could not start configured Python interpreter") from exc
         if proc.returncode not in (0, 5) or not output.exists():
-            raise RuntimeError(f"Pytest collection failed (exit {proc.returncode}): {proc.stderr[-1500:]}")
+            raise CollectionError(f"Pytest collection failed (exit {proc.returncode}); check the repository environment and local runner logs")
         results = json.loads(output.read_text(encoding="utf-8"))
         for item in results:
             values = [str(a) for marker in item["markers"] for a in marker["args"]]
