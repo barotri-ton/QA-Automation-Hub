@@ -14,7 +14,7 @@ def test_inventory_discovers_only_marked_runs(tmp_path, monkeypatch):
     (good / "flbv3-run.json").write_text(json.dumps({"state": "FINISHED", "planned_keys": ["NJM-123"]}))
     (good.parent / "unrelated").mkdir()
     monkeypatch.setattr(flbv3_inventory, "_repo", lambda _: root)
-    rows = list_runs(1)
+    rows = list_runs(1, limit=50)
     assert len(rows["runs"]) == 1
     assert rows["runs"][0]["planned"] == 1
 
