@@ -137,6 +137,27 @@ def analyze(root: Path, run_id: str):
             and timed else "INCOMPLETE_TIMESTAMPS"
         )
         item["evidence_count"] = sum(len(record["attachments"]) for record in item["allure_results"])
+        allure_to_junit = {"passed": "PASSED", "failed": "FAILED", "broken": "BROKEN", "skipped": "SKIPPED"}
+        mapped = [allure_to_junit.get(record["status"]) for record in item["allure_results"]]
+        junit_statuses = [attempt["status"] for attempt in attempts_by_key[key]]
+        junit_counts = {status: junit_statuses.count(status) for status in set(junit_statuses)}
+        allure_counts = {status: mapped.count(status) for status in set(mapped) if status is not None}
+        if not item["allure_results"]:
+            reconciliation = "ALLURE_MISSING"
+        elif len(mapped) != len(junit_statuses):
+            reconciliation = "ATTEMPT_COUNT_MISMATCH"
+        elif None in mapped:
+            reconciliation = "UNKNOWN_ALLURE_STATUS"
+        elif junit_counts != allure_counts:
+            reconciliation = "STATUS_DISTRIBUTION_MISMATCH"
+        else:
+            reconciliation = "STATUS_COUNTS_MATCH_ORDER_UNVERIFIED"
+        item["reconciliation"] = {
+            "state": reconciliation, "junit_attempts": len(junit_statuses),
+            "allure_attempts": len(mapped), "junit_status_counts": junit_counts,
+            "allure_status_counts": allure_counts,
+            "final_verdict_verified": False,
+        }
         item["observed_statuses"] = observed
         item["display_status_is_provisional"] = True
         item["retry_conflict"] = len(observed) > 1
