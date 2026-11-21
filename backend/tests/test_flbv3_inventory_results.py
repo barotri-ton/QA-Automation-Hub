@@ -39,3 +39,6 @@ def test_results_preserve_retry_attempts(tmp_path):
     assert result["cases"][0]["needs_verdict_review"] is True
     assert result["cases"][0]["final_verdict_verified"] is False
     assert result["conflicting_retry_outcomes"] == 1
+    assert result["counts_are_provisional"] is True
+    assert result["provisional_count"] == 1
+    assert result["verified_counts"]["PASSED"] == 0
