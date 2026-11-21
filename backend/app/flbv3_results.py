@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from .flbv3_runner_api import _repo, _safe_run
 
 router = APIRouter(prefix="/api/flbv3", tags=["FLBv3 results"])
-KEY = re.compile(r"NJM-[0-9]+", re.I)
+KEY = re.compile(r"(?<![A-Za-z0-9])NJM[-_][0-9]+(?![0-9])", re.I)
 MAX_FILES = 500
 MAX_BYTES = 12_000_000
 
@@ -52,7 +52,7 @@ def analyze(root: Path, run_id: str):
             kind = "BROKEN" if error is not None else "FAILED" if failure is not None else "SKIPPED" if skipped is not None else "PASSED"
             node = error if error is not None else failure if failure is not None else skipped
             reason = ((node.get("message") or node.text or "") if node is not None else "").strip()[:3000]
-            results.append({"key": key_match.group().upper(), "test": name,
+            results.append({"key": key_match.group().upper().replace("_", "-"), "test": name,
                             "status": kind, "reason": reason,
                             "duration": case.get("time"), "report": str(path.relative_to(folder))})
     latest = {}
