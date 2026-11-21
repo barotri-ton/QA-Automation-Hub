@@ -31,3 +31,10 @@ npm ci
 npm run build
 ```
 Then perform manual Jira import and wave smoke tests in a safe lab. Track failures as issues before production use.
+
+## Evidence cross-check (new)
+- Local backend endpoint: `GET /api/investigations/repositories/{repository_id}/runs/{run_id}/tests/{test_key}?test_run_id={xray_run_id}`.
+- `test_run_id` is optional but should be provided from the selected Xray execution for execution-scoped evidence. The endpoint reads local JUnit and Jira/Xray only; it never writes to Jira.
+- If Jira is unavailable, `jira_error` is populated and local runner evidence remains visible. `specification.state=NOT_CONNECTED` is an explicit blocker for authoritative bug/obsolete classification.
+- In the local frontend, select a repository and run under FLBv3 Results, click Review Jira, enter the execution-specific Test Run ID and click Compare Jira + JUnit.
+- This is an integration implementation, **not** verified against the real intranet Jira or Windows runner. The Vercel demo continues to use synthetic data.
