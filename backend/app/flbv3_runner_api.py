@@ -112,8 +112,8 @@ def start(payload: Launch):
     else:
         args += ["-Waves", ",".join(str(w) for w in payload.waves),
                  "-Parallel", str(payload.parallel)]
-    if payload.allow:
-        args += ["-Allow", ",".join(payload.allow)]
+    # Explicit empty Allow overrides unsafe defaults in upstream runner scripts.
+    args += ["-Allow", ",".join(payload.allow)]
     with _guard:
         if _active() or active_run_id() is not None:
             raise HTTPException(409, "A local runner is already active")
