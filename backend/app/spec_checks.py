@@ -24,6 +24,7 @@ class SpecCheck(Base):
 
 
 class SpecCheckInput(BaseModel):
+    repository_id: int = Field(ge=1)
     run_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
     test_key: str = Field(pattern=r"^NJM-[0-9]+$")
     status: str
@@ -47,6 +48,13 @@ def serialize(row):
 def save(payload: SpecCheckInput, db: Session = Depends(session)):
     if not payload.failed_reason_unclear:
         raise HTTPException(422, "Spec marker requires a FAILED test with an unresolved failure reason; confirm eligibility in review")
+    # Server-side evidence check: client confirmation alone is not sufficient.
+    from .flbv3_runner_api import _repo
+    from .flbv3_results import analyze
+    report = analyze(_repo(payload.repository_id), payload.run_id)
+    case = next((item for item in report["cases"] if item["key"] == payload.test_key), None)
+    if case is None or case["status"] != "FAILED":
+        raise HTTPException(422, "Manual spec check is available only for a FAILED case in the selected run")
     if payload.status not in STATES:
         raise HTTPException(422, "Invalid manual spec verification status")
     row = db.scalar(select(SpecCheck).where(
