@@ -118,7 +118,24 @@ def analyze(root: Path, run_id: str):
         # Filesystem mtime does not establish attempt order. Preserve all observed
         # outcomes and flag conflicting retry statuses for human reconciliation.
         observed = sorted({attempt["status"] for attempt in attempts_by_key[key]})
-        item["allure_results"] = allure.get(key, [])
+        item["allure_results"] = sorted(
+            allure.get(key, []),
+            key=lambda record: (record["start"] is None, record["start"] or 0,
+                                record["stop"] or 0, record["result_file"]),
+        )
+        timed = [record for record in item["allure_results"]
+                 if record["start"] is not None and record["stop"] is not None
+                 and record["stop"] >= record["start"]]
+        item["allure_timed_attempts"] = len(timed)
+        item["allure_statuses"] = sorted({record["status"] for record in item["allure_results"]})
+        item["allure_timeline"] = [{
+            "status": record["status"], "start": record["start"], "stop": record["stop"],
+            "result_file": record["result_file"], "attachment_count": len(record["attachments"]),
+        } for record in item["allure_results"]]
+        item["allure_timeline_confidence"] = (
+            "TIMESTAMPS_PRESENT_NOT_VERIFIED" if len(timed) == len(item["allure_results"])
+            and timed else "INCOMPLETE_TIMESTAMPS"
+        )
         item["evidence_count"] = sum(len(record["attachments"]) for record in item["allure_results"])
         item["observed_statuses"] = observed
         item["display_status_is_provisional"] = True
