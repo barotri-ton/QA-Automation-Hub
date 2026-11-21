@@ -65,6 +65,7 @@ def analyze(root: Path, run_id: str):
         # outcomes and flag conflicting retry statuses for human reconciliation.
         observed = sorted({attempt["status"] for attempt in attempts_by_key[key]})
         item["observed_statuses"] = observed
+        item["display_status_is_provisional"] = True
         item["retry_conflict"] = len(observed) > 1
         item["final_verdict_verified"] = False
         item["needs_verdict_review"] = len(attempts_by_key[key]) > 1
@@ -72,8 +73,13 @@ def analyze(root: Path, run_id: str):
         item["history"] = attempts_by_key[key][:-1]
         item["verdict_confidence"] = "PROVISIONAL_FILE_MTIME"
     counts = {k: sum(item["status"] == k for item in latest.values()) for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED")}
+    # Do not misrepresent file-mtime-derived counts as verified final outcomes.
+    verified_counts = {k: 0 for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED")}
+    provisional_count = len(latest)
     return {"run_id": run_id, "counts": counts, "cases": sorted(latest.values(), key=lambda item: item["key"]),
             "attempts": len(results), "reports_scanned": reports_scanned,
+            "counts_are_provisional": True, "verified_counts": verified_counts,
+            "provisional_count": provisional_count,
             "retry_review_required": sum(item["needs_verdict_review"] for item in latest.values()),
             "conflicting_retry_outcomes": sum(item["retry_conflict"] for item in latest.values()),
             "authoritative_for": "JUnit reports ordered by filesystem modification time; provisional when retries or concurrent writes exist",
