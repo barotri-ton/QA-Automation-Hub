@@ -153,3 +153,27 @@ def test_allure_only_case_is_visible_but_unverified(tmp_path):
     assert case["reconciliation"]["state"] == "JUNIT_MISSING"
     assert case["needs_verdict_review"] is True
     assert case["final_verdict_verified"] is False
+
+
+def test_runner_file_exit_is_not_treated_as_test_verdict(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "runner-check"
+    events = run / "allure-results" / "runner-events"
+    events.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text(json.dumps({
+        "state": "FINISHED", "planned_keys": ["NJM-123"]
+    }))
+    (run / "junit-wave.xml").write_text(
+        '<testsuite><testcase name="NJM-123"><failure message="assertion"/></testcase></testsuite>'
+    )
+    (events / "events.jsonl").write_text(
+        json.dumps({"event": "file_started", "key": "NJM-123", "ts": 1}) + "\n" +
+        json.dumps({"event": "file_finished", "key": "NJM-123", "ts": 2, "exit": 0}) + "\n"
+    )
+    result = analyze(root, run.name)
+    case = result["cases"][0]
+    assert result["runner_event_count"] == 2
+    assert case["status"] == "FAILED"
+    assert case["runner_crosscheck"]["runner_status"] == "PASSED"
+    assert case["runner_crosscheck"]["runner_status_is_test_verdict"] is False
+    assert case["final_verdict_verified"] is False
