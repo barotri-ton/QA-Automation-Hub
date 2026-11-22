@@ -116,6 +116,14 @@ def analyze(root: Path, run_id: str):
     for item in results:
         attempts_by_key.setdefault(item["key"], []).append(item)
         latest[item["key"]] = item
+    # Allure-only cases remain visible as unverified when JUnit is absent.
+    for key in allure.keys() - latest.keys():
+        latest[key] = {
+            "key": key, "test": key, "status": "UNKNOWN",
+            "reason": "JUnit result missing; inspect Allure and runner output",
+            "duration": None, "report": None,
+        }
+        attempts_by_key[key] = []
     for key, item in latest.items():
         # Filesystem mtime does not establish attempt order. Preserve all observed
         # outcomes and flag conflicting retry statuses for human reconciliation.
@@ -147,7 +155,7 @@ def analyze(root: Path, run_id: str):
         if not item["allure_results"]:
             reconciliation = "ALLURE_MISSING"
         elif len(mapped) != len(junit_statuses):
-            reconciliation = "ATTEMPT_COUNT_MISMATCH"
+            reconciliation = "JUNIT_MISSING" if not junit_statuses else "ATTEMPT_COUNT_MISMATCH"
         elif None in mapped:
             reconciliation = "UNKNOWN_ALLURE_STATUS"
         elif junit_counts != allure_counts:
@@ -164,11 +172,11 @@ def analyze(root: Path, run_id: str):
         item["display_status_is_provisional"] = True
         item["retry_conflict"] = len(observed) > 1
         item["final_verdict_verified"] = False
-        item["needs_verdict_review"] = len(attempts_by_key[key]) > 1
+        item["needs_verdict_review"] = len(attempts_by_key[key]) > 1 or not attempts_by_key[key]
         item["attempts"] = len(attempts_by_key[key])
         item["history"] = attempts_by_key[key][:-1]
         item["verdict_confidence"] = "PROVISIONAL_FILE_MTIME"
-    counts = {k: sum(item["status"] == k for item in latest.values()) for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED")}
+    counts = {k: sum(item["status"] == k for item in latest.values()) for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED", "UNKNOWN")}
     # Do not misrepresent file-mtime-derived counts as verified final outcomes.
     verified_counts = {k: 0 for k in ("PASSED", "FAILED", "BROKEN", "SKIPPED")}
     provisional_count = len(latest)
