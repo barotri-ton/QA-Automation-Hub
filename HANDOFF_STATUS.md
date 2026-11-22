@@ -45,3 +45,5 @@ Then perform manual Jira import and wave smoke tests in a safe lab. Track failur
 - This is an integration implementation, **not** verified against the real intranet Jira or Windows runner. The Vercel demo continues to use synthetic data.
 
 - Allure-only NJM cases lacking JUnit are now surfaced as UNKNOWN / JUNIT_MISSING and flagged for review, never counted as confirmed FAILED/PASSED. Dashboard includes UNKNOWN filter. Added offline regression test; CI execution still pending verification.
+
+- Results now expose read-only `runner_crosscheck` from runner-events alongside JUnit/Allure. Runner file-level exit codes are explicitly non-authoritative for per-TC verdicts; the dashboard shows this distinction. Added offline regression for runner exit=0 while JUnit testcase FAILED. Backend/frontend test execution and Windows UAT remain unverified.
