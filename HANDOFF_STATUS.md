@@ -24,6 +24,9 @@ See [LOCAL_WINDOWS_TEST.md](LOCAL_WINDOWS_TEST.md). Configure the Jira PAT in th
 - No Jira publishing UI/backend. Do not claim results were synced.
 - Frontend and backend compilation/test suite must be run on the target development machine before acceptance.
 
+- Allure parser now tolerates malformed `labels` / `attachments` collections; JUnit candidate paths must resolve inside the selected run folder, preventing symlink-directory escape. Offline regression tests were added but have not been executed in the target environment.
+- Latest commit status endpoint reported Vercel success on `3f145df`; GitHub Actions results were not available through the PR-only workflow-run lookup. Do not treat Vercel success as backend pytest PASS.
+
 ## Suggested local checks
 ```powershell
 cd backend
