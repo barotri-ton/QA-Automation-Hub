@@ -29,7 +29,7 @@ def _allure_evidence(folder: Path):
             if not isinstance(payload, dict):
                 continue
             identifiers = " ".join(str(payload.get(field) or "") for field in ("name", "fullName", "testCaseId"))
-            for label in payload.get("labels", []):
+            for label in (payload.get("labels") if isinstance(payload.get("labels"), list) else []):
                 if isinstance(label, dict) and label.get("name") in ("testCaseId", "testId", "suite", "subSuite"):
                     identifiers += " " + str(label.get("value") or "")
             match = KEY.search(identifiers)
@@ -37,7 +37,7 @@ def _allure_evidence(folder: Path):
                 continue
             key = match.group().upper().replace("_", "-")
             attachments = []
-            for attachment in payload.get("attachments", []):
+            for attachment in (payload.get("attachments") if isinstance(payload.get("attachments"), list) else []):
                 if not isinstance(attachment, dict):
                     continue
                 source = attachment.get("source")
@@ -51,6 +51,8 @@ def _allure_evidence(folder: Path):
                                     "source": source, "available": True})
                 if len(attachments) >= MAX_EVIDENCE_PER_CASE:
                     break
+            if len(evidence.get(key, [])) >= MAX_ALLURE_RESULTS:
+                continue
             evidence.setdefault(key, []).append({
                 "result_file": path.name, "uuid": str(payload.get("uuid") or "")[:100],
                 "status": str(payload.get("status") or "unknown")[:30],
@@ -75,7 +77,7 @@ def analyze(root: Path, run_id: str):
             if not (path.name.lower().startswith(("junit", "pytest", "results", "report")) or "junit" in str(path).lower()):
                 continue
             stat = path.stat()
-            if stat.st_size <= MAX_BYTES:
+            if stat.st_size <= MAX_BYTES and path.resolve().is_relative_to(folder.resolve()):
                 candidates.append((stat.st_mtime_ns, str(path), path))
         except OSError:
             continue
