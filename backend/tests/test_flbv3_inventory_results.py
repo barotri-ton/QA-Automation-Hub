@@ -102,3 +102,34 @@ def test_reconciliation_detects_missing_and_mismatched_allure(tmp_path):
     assert state() == "STATUS_COUNTS_MATCH_ORDER_UNVERIFIED"
     (allure / "b-result.json").write_text(json.dumps({"name": "NJM-123", "status": "failed"}))
     assert state() == "ATTEMPT_COUNT_MISMATCH"
+
+
+def test_malformed_allure_collections_do_not_break_analysis(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "run-malformed"
+    allure = run / "allure-results"
+    allure.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text("{}")
+    (run / "junit-wave.xml").write_text('<testsuite><testcase name="NJM-123"/></testsuite>')
+    (allure / "bad-result.json").write_text(json.dumps({
+        "name": "NJM-123", "status": "passed", "labels": None, "attachments": {"bad": "shape"}
+    }))
+    case = analyze(root, run.name)["cases"][0]
+    assert case["evidence_count"] == 0
+    assert case["reconciliation"]["state"] == "STATUS_COUNTS_MATCH_ORDER_UNVERIFIED"
+
+
+def test_junit_symlink_directory_cannot_escape_run_folder(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "run-safe"
+    run.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text("{}")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "junit-secret.xml").write_text('<testsuite><testcase name="NJM-999"/></testsuite>')
+    try:
+        (run / "junit-external").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        return  # Windows without symlink privileges
+    result = analyze(root, run.name)
+    assert result["attempts"] == 0
