@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from .flbv3_runner_api import _repo, _safe_run
+from .flbv3_monitor import read_monitor
 
 router = APIRouter(prefix="/api/flbv3", tags=["FLBv3 results"])
 KEY = re.compile(r"(?<![A-Za-z0-9])NJM[-_][0-9]+(?![0-9])", re.I)
@@ -111,6 +112,14 @@ def analyze(root: Path, run_id: str):
                             "status": kind, "reason": reason,
                             "duration": case.get("time"), "report": str(path.relative_to(folder))})
     allure = _allure_evidence(folder)
+    # File exit codes are diagnostic only, never individual TC verdicts.
+    try:
+        monitor_data = read_monitor(root, run_id, limit=1)
+        runner_states = {row["key"]: row for row in monitor_data["cases"]}
+        runner_event_count = monitor_data["event_count"]
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError):
+        runner_states = {}
+        runner_event_count = 0
     latest = {}
     attempts_by_key = {}
     for item in results:
@@ -168,6 +177,15 @@ def analyze(root: Path, run_id: str):
             "allure_status_counts": allure_counts,
             "final_verdict_verified": False,
         }
+        runner = runner_states.get(key)
+        item["runner_crosscheck"] = {
+            "state": ("RUNNER_EVENTS_MISSING" if runner is None else
+                      "RUNNER_IN_PROGRESS" if runner["status"] in ("RUNNING", "PLANNED") else
+                      "RUNNER_FILE_EXIT_ONLY"),
+            "runner_status": runner["status"] if runner else None,
+            "runner_file_attempts": runner["attempts"] if runner else None,
+            "runner_status_is_test_verdict": False,
+        }
         item["observed_statuses"] = observed
         item["display_status_is_provisional"] = True
         item["retry_conflict"] = len(observed) > 1
@@ -184,6 +202,7 @@ def analyze(root: Path, run_id: str):
             "attempts": len(results), "reports_scanned": reports_scanned,
             "counts_are_provisional": True, "verified_counts": verified_counts,
             "provisional_count": provisional_count,
+            "runner_event_count": runner_event_count,
             "allure_cases_with_evidence": sum(bool(item["evidence_count"]) for item in latest.values()),
             "retry_review_required": sum(item["needs_verdict_review"] for item in latest.values()),
             "conflicting_retry_outcomes": sum(item["retry_conflict"] for item in latest.values()),
