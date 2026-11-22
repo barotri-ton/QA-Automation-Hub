@@ -43,3 +43,5 @@ Then perform manual Jira import and wave smoke tests in a safe lab. Track failur
 - If Jira is unavailable, `jira_error` is populated and local runner evidence remains visible. `specification.state=NOT_CONNECTED` means no manual spec marker exists; QA verifies the specification manually only when a FAILED test has an unclear cause.
 - In the local frontend, select a repository and run under FLBv3 Results, click Review Jira, enter the execution-specific Test Run ID and click Compare Jira + JUnit.
 - This is an integration implementation, **not** verified against the real intranet Jira or Windows runner. The Vercel demo continues to use synthetic data.
+
+- Allure-only NJM cases lacking JUnit are now surfaced as UNKNOWN / JUNIT_MISSING and flagged for review, never counted as confirmed FAILED/PASSED. Dashboard includes UNKNOWN filter. Added offline regression test; CI execution still pending verification.
