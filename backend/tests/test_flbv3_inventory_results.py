@@ -133,3 +133,23 @@ def test_junit_symlink_directory_cannot_escape_run_folder(tmp_path):
         return  # Windows without symlink privileges
     result = analyze(root, run.name)
     assert result["attempts"] == 0
+
+
+def test_allure_only_case_is_visible_but_unverified(tmp_path):
+    root = tmp_path / "automation"
+    run = root / "results" / "runs" / "allure-only"
+    allure = run / "allure-results"
+    allure.mkdir(parents=True)
+    (run / "flbv3-run.json").write_text("{}")
+    (allure / "orphan-result.json").write_text(json.dumps({
+        "name": "test_NJM-777", "status": "failed", "start": 100, "stop": 110
+    }))
+    result = analyze(root, run.name)
+    assert result["attempts"] == 0
+    assert result["counts"]["UNKNOWN"] == 1
+    case = result["cases"][0]
+    assert case["key"] == "NJM-777"
+    assert case["status"] == "UNKNOWN"
+    assert case["reconciliation"]["state"] == "JUNIT_MISSING"
+    assert case["needs_verdict_review"] is True
+    assert case["final_verdict_verified"] is False
